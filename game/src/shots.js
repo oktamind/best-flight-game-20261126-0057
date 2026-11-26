@@ -9,8 +9,8 @@ import { STEP } from './config.js';
 import { EVENT_CRASH } from './flight.js';
 
 const SCENES = {
-  cover: { mission: 'rally', seconds: 22, camera: 'chase' },
-  rally: { mission: 'rally', seconds: 14, camera: 'chase' },
+  cover: { mission: 'rally', seconds: 2, camera: 'chase' },
+  rally: { mission: 'rally', seconds: 2, camera: 'cockpit' },
   landing: { mission: 'landing', seconds: 5, camera: 'chase' },
   tour: { mission: 'tour', seconds: 2, camera: 'chase' },
 };
@@ -22,6 +22,29 @@ export function stageShot(name, flight, renderer) {
   flight.setMission(scene.mission);
   renderer.setCourse(scene.mission);
   renderer.setCameraMode(scene.camera);
+  if (name === 'cover') {
+    // Stage the cover like the tour: west of Ring 2 on its latitude, heading
+    // west into the golden-hour sun, so the big amber ring sits dead ahead
+    // with the sea on the horizon behind it. Two seconds of autopilot leaves
+    // the plane ~120 m out — the ring fills the frame instead of sitting
+    // small and far away the way the old 22 s flown cover did.
+    const s = flight.state;
+    s.x = -80; s.z = 620; s.y = 220;
+    s.heading = -Math.PI / 2; s.pitch = -0.02; s.bank = 0;
+    s.speed = 50; s.throttle = 0.6; s.onGround = false; s.airborne = true;
+    // Ring 1 is already behind the plane: aim the autopilot (and the HUD)
+    // at Ring 2, the one filling the frame, and keep the score honest.
+    s.ringsDone = 1; s.ring = s.course[1]; s.score = 250;
+  }
+  if (name === 'rally') {
+    // The cockpit shot: east of Ring 1 on its latitude, heading east, so the
+    // amber ring is big and centred in the canopy view with the lit dials
+    // underneath. Two seconds of autopilot leaves ~150 m to the ring.
+    const s = flight.state;
+    s.x = -70; s.z = 420; s.y = 180;
+    s.heading = Math.PI / 2; s.pitch = -0.02; s.bank = 0;
+    s.speed = 50; s.throttle = 0.6; s.onGround = false; s.airborne = true;
+  }
   if (name === 'landing') {
     // Stage the final approach directly: on the extended centreline, west of the
     // threshold, already through the gate and lined up on Runway 09. The gate

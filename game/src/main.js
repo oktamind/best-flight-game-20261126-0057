@@ -27,6 +27,9 @@ const flight = createFlight(null, 'rally');
 window.__skylark = flight;
 // The flight needs the island before it steps; the renderer builds it.
 const renderer = createRenderer(canvas, seed);
+// ?tod=midday restores the old noon look; the default is golden hour.
+const tod = params.get('tod');
+if (tod === 'midday' || tod === 'golden') renderer.setTimeOfDay(tod);
 flight.setIsland(renderer.island);
 renderer.setCourse('rally');
 
@@ -127,8 +130,16 @@ function runGame() {
 
   function step() {
     const steering = input.steering();
+    const before = flight.state.score;
     const events = flight.step(STEP, steering);
-    if (events & EVENT_RING) sound.ring();
+    if (events & EVENT_RING) {
+      sound.ring();
+      const delta = flight.state.score - before;
+      const label = flight.state.missionId === 'landing'
+        ? 'FINAL GATE!'
+        : `RING ${flight.state.ringsDone}/${flight.state.course.length}!`;
+      hud.cheer(`${label} +${delta}`);
+    }
     if (events & EVENT_LANDED) sound.thud();
     if (events & EVENT_CRASH) { sound.crash(); endFlight(false); }
     else if (events & EVENT_WIN) endFlight(true);

@@ -36,6 +36,10 @@ export const MISSIONS = {
     id: 'rally', title: 'RING RALLY', rings: 8,
     blurb: 'Fly through the amber ring',
     intro: 'Ring rally — thread all 8 rings before the clock runs out.',
+    // A 6 m/s westerly (12 kt from 270°) blows through the rally: the ground
+    // track drifts east and every leg needs a little crab. Tour and landing
+    // fly in calm air.
+    wind: { x: 6, z: 0, from: 270, kt: 12 },
   },
   tour: {
     id: 'tour', title: 'HARBOUR TOUR', rings: 5,

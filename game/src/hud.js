@@ -2,6 +2,7 @@
 // airspeed dial, throttle and fuel bars, and the mission card. All DOM + one
 // small canvas each, so the numbers are crisp in every screenshot.
 import { formatTime, headingDegrees } from './flight.js';
+import { RUNWAY } from './config.js';
 
 export function createHud() {
   const alt = document.getElementById('alt');
@@ -10,6 +11,8 @@ export function createHud() {
   const vsiEl = document.getElementById('vsi');
   const warn = document.getElementById('warn');
   const strip = document.getElementById('compassStrip');
+  const windLine = document.getElementById('windLine');
+  const cheerEl = document.getElementById('cheer');
   const missionTitle = document.getElementById('missionTitle');
   const missionSub = document.getElementById('missionSub');
   const scoreEl = document.getElementById('score');
@@ -113,6 +116,28 @@ export function createHud() {
     return marks.map((m, i) => (i === idx ? `▶ ${m} ◀` : m)).join('  ');
   }
 
+  // Named legs: the rally is one journey in three chapters, the tour's legs
+  // are its sights, the landing is a single final approach.
+  function legName(state) {
+    if (state.missionId === 'rally') {
+      const legs = ['Coast Run', 'Coast Run', 'Coast Run', 'Ridge Climb', 'Ridge Climb', 'Ridge Climb', 'Home Straight', 'Home Straight'];
+      return legs[Math.min(state.ringsDone, 7)];
+    }
+    if (state.missionId === 'landing') return state.ring ? 'Final Approach' : 'Touchdown';
+    return `Leg ${Math.min(state.ringsDone + 1, state.course.length)} of ${state.course.length}`;
+  }
+
+  // Ring-pass celebration: big transient text in the middle of the screen,
+  // gone in about two seconds. Shown by the game loop, never by the shot
+  // staging, so it cannot leak into a screenshot.
+  let cheerTimer = null;
+  function cheer(text) {
+    cheerEl.textContent = text;
+    cheerEl.style.display = 'block';
+    if (cheerTimer) clearTimeout(cheerTimer);
+    cheerTimer = setTimeout(() => { cheerEl.style.display = 'none'; }, 2200);
+  }
+
   // Snap every indicated value to the truth at once: staged screenshots
   // paint only six frames, far too few for the lag filters to settle, so
   // the shot staging calls this before painting.
@@ -143,11 +168,19 @@ export function createHud() {
     const deg = headingDegrees(state.heading);
     hdg.textContent = String(deg).padStart(3, '0');
     strip.textContent = compassText(deg);
+    // Wind, from the flight model: the rally's westerly, calm anywhere else.
+    windLine.textContent = state.wind ? `WIND ${state.wind.from}° · ${state.wind.kt} kt` : 'WIND CALM';
     missionTitle.textContent = state.missionTitle;
-    missionSub.textContent = state.messageTime > 0 ? state.message : (state.ring ? `Next: ${state.ring.name}` : 'Fly home to Runway 09');
+    // Distance to the objective, in metres — the number that makes the
+    // target readable in a still frame: "RING 2 — 214 m", "RWY 09 — 366 m".
+    const target = state.ring || { x: RUNWAY.x - RUNWAY.length / 2, y: 2, z: RUNWAY.z };
+    const dist = Math.round(Math.hypot(state.x - target.x, state.y - target.y, state.z - target.z));
+    missionSub.textContent = state.messageTime > 0 ? state.message
+      : state.ring ? `Next: ${state.ring.name} · ${dist} m`
+      : `RWY 09 · ${dist} m`;
     scoreEl.textContent = String(state.score);
     timerEl.textContent = formatTime(state.time);
-    ringProg.textContent = `Ring ${state.ringsDone} / ${state.course.length}${state.fuel < 25 ? '  ·  LOW FUEL' : ''}`;
+    ringProg.textContent = `Ring ${state.ringsDone} / ${state.course.length} · ${legName(state)}${state.fuel < 25 ? '  ·  LOW FUEL' : ''}`;
     thrFill.style.width = `${Math.round(state.throttle * 100)}%`;
     thrPct.textContent = `${Math.round(state.throttle * 100)}%`;
     fuelFill.style.width = `${Math.round(state.fuel)}%`;
@@ -170,5 +203,5 @@ export function createHud() {
   }
   function hideBanner() { banner.style.display = 'none'; }
 
-  return { update, snap, showBanner, hideBanner };
+  return { update, snap, cheer, showBanner, hideBanner };
 }

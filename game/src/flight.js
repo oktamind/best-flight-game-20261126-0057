@@ -41,7 +41,7 @@ export function createFlight(island, missionId) {
       ringIndex: 0, score: 0, ringsDone: 0, time: 0, best: 0,
       damage: 0, landed: false, won: false, crashed: false, crashReason: '',
       stalled: false, message: mission.intro, messageTime: 0,
-      ring: course[0], course,
+      ring: course[0], course, wind: mission.wind || null,
     };
   }
 
@@ -101,6 +101,13 @@ export function createFlight(island, missionId) {
     state.x += Math.sin(state.heading) * Math.cos(state.pitch) * forward;
     state.z += -Math.cos(state.heading) * Math.cos(state.pitch) * forward;
     state.y += vertical * dt;
+    // Wind: a real ground drift, not a visual. The rally's westerly pushes
+    // the track east; the autopilot and the pilot both steer through it.
+    // A parked plane does not drift.
+    if (state.wind && !state.onGround) {
+      state.x += state.wind.x * dt;
+      state.z += state.wind.z * dt;
+    }
     if (state.y > MAX_ALT) { state.y = MAX_ALT; state.pitch = Math.min(state.pitch, 0); }
 
     // Ground: rolling on the strip, or a landing, or a crash.

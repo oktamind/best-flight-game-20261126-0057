@@ -31,7 +31,8 @@ export function createRenderer(canvas, seed) {
   const sun = new THREE.DirectionalLight(0xffe6b0, 2.4);
   sun.position.set(-800, 900, -600);
   scene.add(sun);
-  scene.add(new THREE.HemisphereLight(0xbfe6f5, 0x3a5a3a, 1.1));
+  const hemi = new THREE.HemisphereLight(0xbfe6f5, 0x3a5a3a, 1.1);
+  scene.add(hemi);
 
   // A big gradient sky dome, so the horizon is never a hard line.
   const skyGeo = new THREE.SphereGeometry(4200, 24, 12);
@@ -56,6 +57,48 @@ export function createRenderer(canvas, seed) {
   sunDisc.position.set(-2600, 1150, -2600);
   sunDisc.lookAt(camera.position);
   scene.add(sunDisc);
+
+  // Time of day: the midday look the game shipped with, and golden hour —
+  // a low warm sun, an orange horizon, warm haze. Four of our mid-field
+  // neighbours shoot at dusk and it is the single biggest visual gap
+  // between their frames and our flat blue noon, so golden hour is the
+  // default now. No geometry changes, only light and sky.
+  const TIME_OF_DAY = {
+    midday: {
+      skyTop: 0x2f6fb8, skyBottom: 0xbfe6f5, fog: 0xa8d4e8,
+      sunColor: 0xffe6b0, sunIntensity: 2.4, sunPos: [-800, 900, -600],
+      hemiSky: 0xbfe6f5, hemiGround: 0x3a5a3a, hemiIntensity: 1.1,
+      discColor: 0xfff2c0, discPos: [-2600, 1150, -2600], discRadius: 90,
+      exposure: 1.15,
+    },
+    golden: {
+      skyTop: 0x3a2a6e, skyBottom: 0xff9e57, fog: 0xe8a06a,
+      sunColor: 0xffb066, sunIntensity: 2.6, sunPos: [-2200, 380, -700],
+      hemiSky: 0xffc98a, hemiGround: 0x4a3a2a, hemiIntensity: 0.9,
+      discColor: 0xffd27a, discPos: [-2800, 420, -1800], discRadius: 130,
+      exposure: 1.15,
+    },
+  };
+  let timeOfDay = 'golden';
+  function applyTimeOfDay(name) {
+    const p = TIME_OF_DAY[name] || TIME_OF_DAY.golden;
+    timeOfDay = TIME_OF_DAY[name] ? name : 'golden';
+    skyMat.uniforms.top.value.setHex(p.skyTop);
+    skyMat.uniforms.bottom.value.setHex(p.skyBottom);
+    scene.background.setHex(p.skyTop);
+    scene.fog.color.setHex(p.fog);
+    sun.color.setHex(p.sunColor);
+    sun.intensity = p.sunIntensity;
+    sun.position.set(p.sunPos[0], p.sunPos[1], p.sunPos[2]);
+    hemi.color.setHex(p.hemiSky);
+    hemi.groundColor.setHex(p.hemiGround);
+    hemi.intensity = p.hemiIntensity;
+    sunDisc.material.color.setHex(p.discColor);
+    sunDisc.position.set(p.discPos[0], p.discPos[1], p.discPos[2]);
+    sunDisc.scale.setScalar(p.discRadius / 90);
+    renderer.toneMappingExposure = p.exposure;
+  }
+  applyTimeOfDay('golden');
 
   const island = makeIsland(seed);
   // Seeded scatter for trees and town, separate from the island's own noise.
@@ -211,6 +254,8 @@ export function createRenderer(canvas, seed) {
 
   return {
     draw, resize, setCourse, island, snapCamera,
+    setTimeOfDay(name) { applyTimeOfDay(name); },
+    timeOfDay() { return timeOfDay; },
     toggleCamera() {
       cameraMode = cameraMode === CAMERA_CHASE ? CAMERA_COCKPIT
         : cameraMode === CAMERA_COCKPIT ? CAMERA_TOWER : CAMERA_CHASE;

@@ -14,13 +14,14 @@
   .panel { position: absolute; background: rgba(6, 22, 34, .55); border: 1px solid rgba(140, 220, 255, .35);
     border-radius: 10px; padding: 8px 12px; backdrop-filter: blur(2px); }
   #readouts { top: 12px; left: 12px; font-variant-numeric: tabular-nums; }
-  #readouts .big { font-size: 26px; font-weight: 700; letter-spacing: .5px; }
+  #readouts .big { font-size: 24px; font-weight: 700; letter-spacing: .5px; }
   #readouts .big small { font-size: 11px; font-weight: 600; color: #9fd8ff; display: block; letter-spacing: 2px; }
-  #readouts .row { display: flex; gap: 18px; }
+  #readouts .row { display: flex; gap: 14px; }
   #readouts .warn { color: #ffb347; font-weight: 700; }
-  #compass { top: 12px; left: 50%; transform: translateX(-50%); width: 500px; text-align: center;
+  #compass { top: 12px; left: 50%; transform: translateX(-50%); width: 480px; text-align: center;
     padding: 6px 10px; font-size: 13px; letter-spacing: 1px; white-space: nowrap; overflow: hidden; }
   #compass .strip { font-family: ui-monospace, monospace; font-size: 14px; color: #bfe9ff; }
+  #compass .wind { font-size: 11px; color: #ffd27f; letter-spacing: 2px; margin-top: 2px; }
   #mission { top: 12px; right: 12px; text-align: right; min-width: 210px; }
   #mission .title { font-size: 15px; font-weight: 700; color: #ffd27f; }
   #mission .sub { font-size: 12px; color: #cfeeff; margin-top: 2px; }
@@ -40,6 +41,9 @@
   #banner { position: absolute; left: 50%; top: 26%; transform: translateX(-50%); text-align: center;
     font-size: 30px; font-weight: 800; color: #ffe9a8; display: none; }
   #banner small { display: block; font-size: 15px; font-weight: 600; color: #dff3ff; margin-top: 4px; }
+  #cheer { position: absolute; left: 50%; top: 34%; transform: translate(-50%,-50%); display: none;
+    font-size: 44px; font-weight: 800; color: #ffb02e; letter-spacing: 1px;
+    text-shadow: 0 2px 14px rgba(0,0,0,.75), 0 0 30px rgba(255,176,46,.5); white-space: nowrap; }
   #menu { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     pointer-events: auto; background: linear-gradient(180deg, rgba(4,16,28,.25), rgba(4,16,28,.72)); }
   #menu .card { max-width: 620px; margin: 16px; padding: 26px 30px; border-radius: 16px;
@@ -69,7 +73,7 @@
     <div class="big"><small>HEADING</small><span id="hdg">000</span>&deg;</div>
     <div class="big"><small>V/S</small><span id="vsi">+0</span> fpm</div>
   </div><div id="warn" class="warn"></div></div>
-  <div id="compass" class="panel"><div class="strip" id="compassStrip">N &nbsp; 030 &nbsp; 060 &nbsp; E &nbsp; 120 &nbsp; 150 &nbsp; S &nbsp; 210 &nbsp; 240 &nbsp; W &nbsp; 300 &nbsp; 330</div></div>
+  <div id="compass" class="panel"><div class="strip" id="compassStrip">N &nbsp; 030 &nbsp; 060 &nbsp; E &nbsp; 120 &nbsp; 150 &nbsp; S &nbsp; 210 &nbsp; 240 &nbsp; W &nbsp; 300 &nbsp; 330</div><div class="wind" id="windLine">WIND CALM</div></div>
   <div id="mission" class="panel"><div class="title" id="missionTitle">RING RALLY</div>
     <div class="sub" id="missionSub">Fly through the amber ring</div>
     <div class="score"><span id="score">0</span> pts &nbsp;&middot;&nbsp; <span id="timer">0:00</span></div>
@@ -81,6 +85,7 @@
     <div class="fuel"><div class="fuelFill" id="fuelFill" style="width:100%"></div></div></div>
   <div id="centre">+</div>
   <div id="banner"></div>
+  <div id="cheer"></div>
   <div id="menu"><div class="card">
     <h1>SKYLARK ISLAND RALLY</h1>
     <h2>FLY THE KITEFIN-9 &middot; CORAL ISLAND</h2>
