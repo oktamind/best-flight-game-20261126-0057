@@ -24,9 +24,10 @@ export function stageShot(name, flight, renderer) {
   renderer.setCameraMode(scene.camera);
   if (name === 'landing') {
     // Stage the final approach directly: on the extended centreline, west of the
-    // threshold, already through the gate and lined up on Runway 09.
+    // threshold, already through the gate and lined up on Runway 09. The gate
+    // sits at 80 m, so the staged approach flies at 100 m, on the glidepath.
     const s = flight.state;
-    s.x = -120; s.z = 620; s.y = 170;
+    s.x = -120; s.z = 620; s.y = 100;
     s.heading = Math.PI / 2; s.pitch = -0.06; s.bank = 0;
     s.speed = 50; s.throttle = 0.6; s.onGround = false; s.airborne = true;
     s.ringsDone = 1; s.ring = null;

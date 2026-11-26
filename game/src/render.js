@@ -12,6 +12,12 @@ export function createRenderer(canvas, seed) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
+  // ACES filmic tone mapping: the late-afternoon sun gets a deeper sky and
+  // richer sea and grass instead of the flat Lambert wash. The sky dome is a
+  // raw ShaderMaterial (untone-mapped), so exposure is nudged up to keep the
+  // lit terrain in balance with it.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(PALETTE.skyTop);
@@ -85,7 +91,25 @@ export function createRenderer(canvas, seed) {
     return course;
   }
 
-  function updateRings(state, time) {
+  // Ring-pass burst: an expanding shockwave hoop that blooms out of the ring
+  // just flown through and fades in under a second. Event-driven, tied to the
+  // one moment the pilot wants feedback for — a ring passing with no flash
+  // reads as a miss.
+  const bursts = [];
+  let prevRingsDone = 0;
+  function updateRings(state, time, dt) {
+    if (state.ringsDone > prevRingsDone && ringMeshes.length) {
+      const passed = ringMeshes[Math.min(prevRingsDone, ringMeshes.length - 1)];
+      const burst = new THREE.Mesh(
+        new THREE.TorusGeometry(24, 2.2, 10, 40),
+        new THREE.MeshBasicMaterial({ color: PALETTE.ringDone, transparent: true, opacity: 0.95 }),
+      );
+      burst.position.copy(passed.position);
+      burst.quaternion.copy(passed.quaternion);
+      ringGroup.add(burst);
+      bursts.push({ mesh: burst, age: 0 });
+    }
+    prevRingsDone = state.ringsDone;
     ringMeshes.forEach((hoop, index) => {
       const done = index < state.ringsDone;
       const next = index === state.ringsDone;
@@ -96,6 +120,14 @@ export function createRenderer(canvas, seed) {
       const s = next ? 1 + Math.sin(time * 3) * 0.04 : 1;
       hoop.scale.setScalar(s);
     });
+    for (let i = bursts.length - 1; i >= 0; i -= 1) {
+      const b = bursts[i];
+      b.age += dt;
+      const k = b.age / 0.7;
+      if (k >= 1) { ringGroup.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); bursts.splice(i, 1); continue; }
+      b.mesh.scale.setScalar(1 + k * 1.4);
+      b.mesh.material.opacity = 0.95 * (1 - k);
+    }
   }
 
   // Chase camera: behind and above the tail, smoothed, widening with speed.
@@ -145,7 +177,7 @@ export function createRenderer(canvas, seed) {
 
   function draw(state, time, dt) {
     updateCamera(state, dt);
-    updateRings(state, time);
+    updateRings(state, time, dt);
     renderer.render(scene, camera);
   }
 

@@ -20,6 +20,20 @@ export function makeIsland(seed) {
     const d = Math.hypot(dx, dz);
     return Math.max(0, 1 - d / 300);
   }
+  // Final-approach corridor: keep the glidepath west of Runway 09 clear, so a
+  // landing flown through the gate meets flat ground, not a hillside. The
+  // hills right before the threshold peak near 80 m, and the touchdown sink
+  // limit (6 m/s) leaves no descent that clears them — so the corridor is
+  // fully flat from 350 m west of the threshold to the strip, fading back to
+  // the hills over the next 250 m west and 90 m either side of the centreline.
+  // It reads as the flat valley the airfield was built in.
+  function approachFalloff(x, z) {
+    const west = RUNWAY.x - RUNWAY.length / 2 - x;
+    if (west < 0) return 0;
+    const along = west <= 350 ? 1 : Math.max(0, 1 - (west - 350) / 250);
+    const across = Math.max(0, 1 - Math.abs(z - RUNWAY.z) / 90);
+    return along * across;
+  }
   function groundHeight(x, z) {
     const r = Math.hypot(x, z) / HALF;
     if (r >= 1.15) return -6; // open sea floor, far out
@@ -33,8 +47,10 @@ export function makeIsland(seed) {
     h += ridge * ridge * 70;
     // Beach ring where the land meets the sea.
     if (r > 0.86 && h < 9) h = Math.max(h, 3.2);
-    // Flatten the airfield so the runway sits on level ground.
-    const flat = runwayFalloff(x, z);
+    // Flatten the airfield so the runway sits on level ground, and the final
+    // approach corridor with it — the gate is the start of the landing, not
+    // a hillside to crash into on the way down.
+    const flat = Math.max(runwayFalloff(x, z), approachFalloff(x, z));
     return h * (1 - flat) + 2.2 * flat;
   }
   return { groundHeight, noise };
@@ -53,7 +69,11 @@ export function ringCourse(missionId) {
     ];
   }
   if (missionId === 'landing') {
-    return [{ x: RUNWAY.x - 620, z: RUNWAY.z, y: 150, name: 'Final Gate' }];
+    // Final Gate: 660 m west of the threshold at 80 m — a real final-approach
+    // fix. The old gate (620 m out at 150 m) was unflyable: no descent that
+    // respected the 6 m/s touchdown sink limit could reach the 520 m strip
+    // in time, so the mission could only be won by flying through the hoop.
+    return [{ x: RUNWAY.x - 920, z: RUNWAY.z, y: 80, name: 'Final Gate' }];
   }
   return [
     { x: 180, z: 420, y: 180, name: 'Ring 1' },

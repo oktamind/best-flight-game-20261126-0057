@@ -122,7 +122,10 @@ export function createFlight(island, missionId) {
           state.message = sinkRate < 3 ? 'Butter-smooth touchdown!' : 'Down — a firm one, but she is in one piece.';
           state.messageTime = 5;
           events |= EVENT_LANDED;
-          if (state.missionId === 'landing') { state.won = true; events |= EVENT_WIN; }
+          if (state.missionId === 'landing') {
+            state.won = true; events |= EVENT_WIN;
+            state.score += Math.max(0, Math.round(1000 - state.time * 2));
+          }
         } else {
           return crash(overRunway ? 'You ran off the runway.' : 'You hit the ground.');
         }
@@ -167,12 +170,22 @@ export function createFlight(island, missionId) {
         state.messageTime = 3;
         events |= EVENT_RING;
         if (state.ringsDone >= course.length) {
-          state.won = true; events |= EVENT_WIN;
-          state.score += Math.max(0, Math.round(1000 - state.time * 2));
-          state.message = state.missionId === 'tour'
-            ? 'Tour complete! Now bring her home to Runway 09.'
-            : 'Course complete! Fly home to Runway 09 to finish.';
-          state.messageTime = 6;
+          if (state.missionId === 'landing') {
+            // The gate is a guide, not the finish: a landing challenge is won
+            // by a real touchdown on the strip, never by flying through a hoop
+            // at 150 m. Clear the course (the autopilot then aims at the
+            // runway threshold) and wait for the touchdown branch above.
+            state.ring = null;
+            state.message = 'Through the gate — now set her down on Runway 09.';
+            state.messageTime = 5;
+          } else {
+            state.won = true; events |= EVENT_WIN;
+            state.score += Math.max(0, Math.round(1000 - state.time * 2));
+            state.message = state.missionId === 'tour'
+              ? 'Tour complete! Now bring her home to Runway 09.'
+              : 'Course complete! Fly home to Runway 09 to finish.';
+            state.messageTime = 6;
+          }
         } else {
           state.ring = course[state.ringsDone];
         }

@@ -134,8 +134,12 @@ function runGame() {
 
   function frame(now) {
     requestAnimationFrame(frame);
-    accumulator += Math.min((now - last) / 1000, MAX_FRAME);
+    // The real frame time, not STEP: the camera smoothing in draw() must
+    // converge in wall-clock time, or on a slow machine the plane outruns
+    // its own chase camera and shrinks to a speck. At 60 fps this equals STEP.
+    const frameDt = Math.min((now - last) / 1000, MAX_FRAME);
     last = now;
+    accumulator += frameDt;
     handleActions();
     if (screen === 'play') {
       while (accumulator >= STEP && screen === 'play') { step(); accumulator -= STEP; }
@@ -143,12 +147,15 @@ function runGame() {
       accumulator = 0;
     }
     if (screen !== 'title') {
-      renderer.draw(flight.state, flight.state.time, STEP);
+      renderer.draw(flight.state, flight.state.time, frameDt);
       hud.update(flight.state);
     } else {
-      // Title screen: the island and the parked plane, camera slowly orbiting.
+      // Title screen: the parked plane on the strip, town behind it. The HUD
+      // updates here too, or the instruments sit dead at 0 ft / 0 kt / 000°
+      // with black dials until the first mission starts.
       flight.state.time += STEP;
-      renderer.draw(flight.state, flight.state.time, STEP);
+      renderer.draw(flight.state, flight.state.time, frameDt);
+      hud.update(flight.state);
     }
   }
 
