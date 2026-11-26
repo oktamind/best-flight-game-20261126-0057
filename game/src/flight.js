@@ -76,7 +76,10 @@ export function createFlight(island, missionId) {
     let accel = (targetSpeed - state.speed) * 0.35;
     accel += -Math.sin(state.pitch) * 9 * dt * 60 * 0.016;
     state.speed = clamp(state.speed + accel * dt, 0, PLANE.maxSpeed);
-    state.stalled = !state.onGround && state.speed < PLANE.minFlySpeed;
+    // Flaps add lift (CLflap): the wing keeps flying about 15% slower with
+    // them down, which is what makes a slow, steep final approach possible.
+    const minFly = PLANE.minFlySpeed * (state.flaps ? 0.85 : 1);
+    state.stalled = !state.onGround && state.speed < minFly;
 
     // Attitude: stick moves pitch and bank toward the commanded values.
     const pitchTarget = clamp(input.pitch, -1, 1) * 0.5;
@@ -90,7 +93,7 @@ export function createFlight(island, missionId) {
     // Climb and sink: pitch trades speed for height; flaps add lift low and slow.
     const lift = state.onGround ? 0 : Math.sin(state.pitch) * state.speed * PLANE.climbFromPitch;
     const sink = state.stalled ? -14 : -1.2;
-    let vertical = lift + (state.speed < PLANE.minFlySpeed && !state.onGround ? sink : 0);
+    let vertical = lift + (state.speed < minFly && !state.onGround ? sink : 0);
     if (state.flaps && state.speed > 18) vertical += 1.5;
 
     // Move.

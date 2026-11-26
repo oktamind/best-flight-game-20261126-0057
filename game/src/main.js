@@ -80,12 +80,15 @@ function runShot(name) {
   menu.style.display = 'none';
   const scene = stageShot(name, flight, renderer);
   void scene;
+  // Snap the instruments to the staged state first: the lag filters would
+  // need seconds of frames to settle, and the shot paints only six.
+  hud.snap(flight.state);
   // Paint a few frames so the camera smoothing and the HUD settle on the staged
   // scene before the screenshot is taken.
   let painted = 0;
   function paint() {
     renderer.draw(flight.state, flight.state.time || 1, STEP);
-    hud.update(flight.state);
+    hud.update(flight.state, STEP);
     painted += 1;
     if (painted < 6) requestAnimationFrame(paint);
     else window.__shotReady = true;
@@ -104,7 +107,7 @@ function runGame() {
     if (actions & ACTION_MUTE) { muted = sound.toggleMute(); announce(muted ? 'Sound off.' : 'Sound on.'); }
     if (actions & ACTION_CAMERA && screen === 'play') {
       const mode = renderer.toggleCamera();
-      announce(mode === 'cockpit' ? 'Cockpit view.' : 'Chase view.');
+      announce(mode === 'cockpit' ? 'Cockpit view.' : mode === 'tower' ? 'Tower view.' : 'Chase view.');
     }
     if (actions & ACTION_FLAPS && screen === 'play') {
       flight.state.flaps = !flight.state.flaps;
@@ -148,14 +151,14 @@ function runGame() {
     }
     if (screen !== 'title') {
       renderer.draw(flight.state, flight.state.time, frameDt);
-      hud.update(flight.state);
+      hud.update(flight.state, frameDt);
     } else {
       // Title screen: the parked plane on the strip, town behind it. The HUD
       // updates here too, or the instruments sit dead at 0 ft / 0 kt / 000°
       // with black dials until the first mission starts.
       flight.state.time += STEP;
       renderer.draw(flight.state, flight.state.time, frameDt);
-      hud.update(flight.state);
+      hud.update(flight.state, frameDt);
     }
   }
 

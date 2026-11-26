@@ -27,12 +27,22 @@ export function buildAircraft() {
   const wing = new THREE.Mesh(new THREE.BoxGeometry(13.5, 0.28, 2.6), cream);
   wing.position.set(0, -0.1, 0.4);
   plane.add(wing);
+  // Red wingtip caps and a fin stripe: the paint scheme, so the wing reads
+  // as an authored surface from the chase view instead of one flat slab.
+  for (const side of [-1, 1]) {
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.3, 2.6), red);
+    cap.position.set(side * 6.0, -0.1, 0.4);
+    plane.add(cap);
+  }
   const tailWing = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.22, 1.5), cream);
   tailWing.position.set(0, 0.35, 3.4);
   plane.add(tailWing);
   const fin = new THREE.Mesh(new THREE.BoxGeometry(0.24, 2.4, 1.8), red);
   fin.position.set(0, 1.2, 3.4);
   plane.add(fin);
+  const finStripe = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.5, 1.8), cream);
+  finStripe.position.set(0, 1.7, 3.4);
+  plane.add(finStripe);
   // Wingtip nav lights: red port, green starboard, white tail.
   const tipGeo = new THREE.SphereGeometry(0.28, 8, 6);
   const port = new THREE.Mesh(tipGeo, new THREE.MeshBasicMaterial({ color: 0xff2a2a }));

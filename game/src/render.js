@@ -7,6 +7,7 @@ import { buildAircraft } from './aircraft.js';
 
 export const CAMERA_CHASE = 'chase';
 export const CAMERA_COCKPIT = 'cockpit';
+export const CAMERA_TOWER = 'tower';
 
 export function createRenderer(canvas, seed) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -132,14 +133,21 @@ export function createRenderer(canvas, seed) {
 
   // Chase camera: behind and above the tail, smoothed, widening with speed.
   // Cockpit camera: at the canopy, looking down the nose.
+  // Tower camera: fixed at the airfield, tracking the plane like a spotter.
   const camPos = new THREE.Vector3();
   const camTarget = new THREE.Vector3();
+  const towerPos = new THREE.Vector3(RUNWAY.x - 330, 55, RUNWAY.z - 170);
   let cameraMode = CAMERA_CHASE;
   function updateCamera(state, dt) {
     const heading = state.heading;
     const fx = Math.sin(heading); const fz = -Math.cos(heading);
     const px = Math.sin(state.pitch);
-    if (cameraMode === CAMERA_COCKPIT) {
+    if (cameraMode === CAMERA_TOWER) {
+      camera.position.copy(towerPos);
+      camera.lookAt(state.x, state.y, state.z);
+      camera.fov = 55;
+      camera.updateProjectionMatrix();
+    } else if (cameraMode === CAMERA_COCKPIT) {
       // At the nose, just ahead of the canopy, looking down the flight path.
       camPos.set(
         state.x + fx * 4.5, state.y + 1.1,
@@ -203,7 +211,11 @@ export function createRenderer(canvas, seed) {
 
   return {
     draw, resize, setCourse, island, snapCamera,
-    toggleCamera() { cameraMode = cameraMode === CAMERA_CHASE ? CAMERA_COCKPIT : CAMERA_CHASE; return cameraMode; },
+    toggleCamera() {
+      cameraMode = cameraMode === CAMERA_CHASE ? CAMERA_COCKPIT
+        : cameraMode === CAMERA_COCKPIT ? CAMERA_TOWER : CAMERA_CHASE;
+      return cameraMode;
+    },
     cameraMode() { return cameraMode; },
     setCameraMode(mode) { cameraMode = mode; },
   };

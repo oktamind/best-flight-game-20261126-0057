@@ -7,6 +7,7 @@ export function createHud() {
   const alt = document.getElementById('alt');
   const spd = document.getElementById('spd');
   const hdg = document.getElementById('hdg');
+  const vsiEl = document.getElementById('vsi');
   const warn = document.getElementById('warn');
   const strip = document.getElementById('compassStrip');
   const missionTitle = document.getElementById('missionTitle');
@@ -30,14 +31,25 @@ export function createHud() {
     if (message !== lastAnnounce) { lastAnnounce = message; status.textContent = message; }
   }
 
-  function drawAttitude(state) {
+  // Instrument layer: no display ever reads the physics state raw. Each
+  // gauge is a first-order lag filter over the true value, the way a real
+  // pitot-static or gyro instrument behaves — ASI is quick (0.15 s), the
+  // altimeter slow (1.5 s), the VSI the slowest of all (7 s), and the
+  // attitude ball follows the gyro with a short lag. Deterministic: the
+  // filter is a pure function of value and dt, no noise, so the staged
+  // screenshots stay reproducible.
+  const lag = (current, target, tau, dt) => current + (target - current) * (1 - Math.exp(-dt / tau));
+  let indAlt = 0; let indSpd = 0; let indPitch = 0; let indRoll = 0; let indVs = 0;
+  let prevAlt = null;
+
+  function drawAttitude(pitch, bank) {
     const w = 120; const h = 120; const cx = 60; const cy = 60;
     attCtx.clearRect(0, 0, w, h);
     attCtx.save();
     attCtx.beginPath(); attCtx.arc(cx, cy, 56, 0, Math.PI * 2); attCtx.clip();
     attCtx.translate(cx, cy);
-    attCtx.rotate(-state.bank);
-    attCtx.translate(0, state.pitch * 90);
+    attCtx.rotate(-bank);
+    attCtx.translate(0, pitch * 90);
     attCtx.fillStyle = '#2f6fb8'; attCtx.fillRect(-70, -90, 140, 90);
     attCtx.fillStyle = '#8a6a3f'; attCtx.fillRect(-70, 0, 140, 90);
     attCtx.strokeStyle = '#fff'; attCtx.lineWidth = 2;
@@ -54,22 +66,41 @@ export function createHud() {
     attCtx.textAlign = 'center'; attCtx.fillText('ATT', 60, 14);
   }
 
-  function drawDial(state) {
+  // Kitefin-9 V-speeds (knots): stall 24 m/s clean = 47 kt, flaps down
+  // 20.4 m/s = 40 kt, cruise 62 m/s = 120 kt, max 95 m/s = 184 kt.
+  const DIAL_MAX = 160;
+  const VSO = 40; const VS1 = 47; const VFE = 85; const VNO = 129; const VNE = 163;
+  function dialAngle(kt) { return -Math.PI * 0.75 + (Math.max(0, Math.min(DIAL_MAX, kt)) / DIAL_MAX) * Math.PI * 1.5; }
+  function drawDial(speedKt) {
     const w = 120; const h = 120; const cx = 60; const cy = 60;
     dialCtx.clearRect(0, 0, w, h);
     dialCtx.strokeStyle = 'rgba(255,255,255,.7)'; dialCtx.lineWidth = 1;
     dialCtx.beginPath(); dialCtx.arc(cx, cy, 52, 0, Math.PI * 2); dialCtx.stroke();
+    // Colour arcs, the signature of a real airspeed indicator: white is the
+    // flap range, green normal operation, yellow caution, red line at Vne.
+    const arc = (from, to, color) => {
+      dialCtx.strokeStyle = color; dialCtx.lineWidth = 5;
+      dialCtx.beginPath(); dialCtx.arc(cx, cy, 50, dialAngle(from), dialAngle(to)); dialCtx.stroke();
+    };
+    arc(VSO, VFE, '#ffffff');
+    arc(VS1, VNO, '#00cc44');
+    arc(VNO, DIAL_MAX, '#ffcc00');
+    const redA = dialAngle(DIAL_MAX);
+    dialCtx.strokeStyle = '#ff2200'; dialCtx.lineWidth = 3;
+    dialCtx.beginPath();
+    dialCtx.moveTo(cx + Math.cos(redA) * 44, cy + Math.sin(redA) * 44);
+    dialCtx.lineTo(cx + Math.cos(redA) * 52, cy + Math.sin(redA) * 52);
+    dialCtx.stroke();
     dialCtx.fillStyle = '#bfe9ff'; dialCtx.font = '10px system-ui'; dialCtx.textAlign = 'center';
-    for (let kt = 0; kt <= 120; kt += 20) {
-      const a = -Math.PI * 0.75 + (kt / 120) * Math.PI * 1.5;
-      const x = cx + Math.cos(a) * 44; const y = cy + Math.sin(a) * 44 + 3;
+    for (let kt = 0; kt <= DIAL_MAX; kt += 20) {
+      const a = dialAngle(kt);
+      const x = cx + Math.cos(a) * 40; const y = cy + Math.sin(a) * 40 + 3;
       dialCtx.fillText(String(kt), x, y);
     }
-    const speedKt = state.speed * 1.94;
-    const a = -Math.PI * 0.75 + (Math.min(120, speedKt) / 120) * Math.PI * 1.5;
+    const a = dialAngle(speedKt);
     dialCtx.strokeStyle = '#ff7a59'; dialCtx.lineWidth = 3;
     dialCtx.beginPath(); dialCtx.moveTo(cx, cy);
-    dialCtx.lineTo(cx + Math.cos(a) * 46, cy + Math.sin(a) * 46); dialCtx.stroke();
+    dialCtx.lineTo(cx + Math.cos(a) * 44, cy + Math.sin(a) * 44); dialCtx.stroke();
     dialCtx.fillStyle = '#fff'; dialCtx.font = 'bold 15px system-ui';
     dialCtx.fillText(`${Math.round(speedKt)}`, cx, cy + 26);
     dialCtx.font = '9px system-ui'; dialCtx.fillStyle = '#9fd8ff';
@@ -82,9 +113,33 @@ export function createHud() {
     return marks.map((m, i) => (i === idx ? `▶ ${m} ◀` : m)).join('  ');
   }
 
-  function update(state) {
-    alt.textContent = String(Math.max(0, Math.round(state.y * 3.28)));
-    spd.textContent = String(Math.round(state.speed * 1.94));
+  // Snap every indicated value to the truth at once: staged screenshots
+  // paint only six frames, far too few for the lag filters to settle, so
+  // the shot staging calls this before painting.
+  function snap(state) {
+    indAlt = state.y * 3.28;
+    indSpd = state.speed * 1.94;
+    indPitch = state.pitch;
+    indRoll = state.bank;
+    indVs = 0;
+    prevAlt = state.y;
+  }
+
+  function update(state, dt = 1 / 60) {
+    const safeDt = dt > 0 ? dt : 1 / 60;
+    indAlt = lag(indAlt, state.y * 3.28, 1.5, safeDt);
+    indSpd = lag(indSpd, state.speed * 1.94, 0.15, safeDt);
+    indPitch = lag(indPitch, state.pitch, 0.15, safeDt);
+    indRoll = lag(indRoll, state.bank, 0.15, safeDt);
+    const trueVs = prevAlt === null ? 0 : ((state.y - prevAlt) / safeDt) * 196.85;
+    indVs = lag(indVs, trueVs, 7, safeDt);
+    // A real VSI pegs at its dial limit (±2000 fpm); it never reads 7000.
+    indVs = Math.max(-2000, Math.min(2000, indVs));
+    prevAlt = state.y;
+    alt.textContent = String(Math.max(0, Math.round(indAlt)));
+    spd.textContent = String(Math.round(indSpd));
+    const vsRounded = Math.round(indVs);
+    vsiEl.textContent = `${vsRounded >= 0 ? '+' : ''}${vsRounded}`;
     const deg = headingDegrees(state.heading);
     hdg.textContent = String(deg).padStart(3, '0');
     strip.textContent = compassText(deg);
@@ -104,8 +159,8 @@ export function createHud() {
     if (state.fuel <= 0) warnings.push('FUEL EMPTY — GLIDING');
     if (state.crashed) warnings.push(state.crashReason);
     warn.textContent = warnings.join('  ·  ');
-    drawAttitude(state);
-    drawDial(state);
+    drawAttitude(indPitch, indRoll);
+    drawDial(indSpd);
     announce(`Altitude ${alt.textContent} feet, speed ${spd.textContent} knots, heading ${hdg.textContent}. Score ${state.score}.`);
   }
 
@@ -115,5 +170,5 @@ export function createHud() {
   }
   function hideBanner() { banner.style.display = 'none'; }
 
-  return { update, showBanner, hideBanner };
+  return { update, snap, showBanner, hideBanner };
 }

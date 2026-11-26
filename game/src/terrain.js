@@ -133,6 +133,7 @@ export function buildTerrain(scene, island, rand) {
   buildTown(group, island, rand);
   buildTrees(group, island, rand);
   buildLighthouse(group, island);
+  buildBoats(group);
   buildClouds(group, rand);
   scene.add(group);
   return group;
@@ -229,6 +230,43 @@ function buildTrees(group, island, rand) {
     trees.add(crown);
   }
   group.add(trees);
+}
+
+// Three little sailboats anchored off the harbour. Their spots were
+// measured, not guessed: groundHeight there is -6 (open sea), so the hulls
+// float on the sea disc at SEA_Y instead of sitting on the beach.
+function buildBoats(group) {
+  const spots = [
+    { x: -1000, z: 1150, heading: 0.6, sail: PALETTE.planeRed },
+    { x: -900, z: 1280, heading: -0.9, sail: 0xf2e8d5 },
+    { x: -1120, z: 1250, heading: 2.4, sail: PALETTE.ringIdle },
+  ];
+  for (const s of spots) {
+    const boat = new THREE.Group();
+    const hull = new THREE.Mesh(
+      new THREE.BoxGeometry(3.2, 1.1, 8),
+      new THREE.MeshLambertMaterial({ color: 0x8a5a2e }),
+    );
+    hull.position.y = 0.4;
+    boat.add(hull);
+    const mast = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.12, 7, 6),
+      new THREE.MeshLambertMaterial({ color: 0x5a3a1e }),
+    );
+    mast.position.y = 4.2;
+    boat.add(mast);
+    const sailShape = new THREE.Shape();
+    sailShape.moveTo(0, 0); sailShape.lineTo(0, 6.2); sailShape.lineTo(3.4, 0.4); sailShape.lineTo(0, 0);
+    const sail = new THREE.Mesh(
+      new THREE.ShapeGeometry(sailShape),
+      new THREE.MeshLambertMaterial({ color: s.sail, side: THREE.DoubleSide }),
+    );
+    sail.position.set(0.2, 1.4, 0.4);
+    boat.add(sail);
+    boat.position.set(s.x, SEA_Y, s.z);
+    boat.rotation.y = s.heading;
+    group.add(boat);
+  }
 }
 
 function buildLighthouse(group, island) {
